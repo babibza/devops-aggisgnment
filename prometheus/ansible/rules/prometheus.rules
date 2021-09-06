@@ -1,0 +1,28 @@
+# Alert on Prometheus platform instance down for > 1m
+ALERT PrometheusInstanceDown
+  IF up{platform="prometheus"} == 0
+  FOR 1m
+  LABELS { severity = "critical" }
+  ANNOTATIONS {
+    summary = "Prometheus Instance Down Alert",
+    description = "Instance *{{ $labels.instance }}* in region: *{{ $labels.region }}*, of job {{ $labels.job }}, has been down for more than 1 minute."
+  }
+
+# Alert on Prometheus server in RUSHED MODE for > 1m
+ALERT PrometheusRushedMode
+  IF prometheus_local_storage_rushed_mode == 1
+  FOR 1m
+  LABELS { severity = "warning" }
+  ANNOTATIONS {
+    summary = "Prometheus server in RUSHED MODE",
+    description = "The prometheus server *{{ $labels.instance }}* has been in rushed mode for more than 1 minute. Prometheus should automatically resolve this condition, but if it persists it should be investigated as it indicates the disk writes cannot keep up with the ingestion rates."
+  }
+
+# Alert on CloudWatch exporter long scrape duration
+ALERT PrometheusCloudWatchLongScrapeDuration
+  IF cloudwatch_exporter_scrape_duration_seconds > 60
+  LABELS { severity = "warning" }
+  ANNOTATIONS {
+    summary = "CloudWatch exporter scrape duration exceeded 60s",
+    description = "The cloudwatch exporter scrape duration for instance *{{ $labels.instance }}* exceeded 60s. If this happens regularly this should be looked into to determine if the scrape timeout needs to be extended."
+  }

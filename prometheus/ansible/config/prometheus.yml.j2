@@ -1,0 +1,283 @@
+global:
+  # How frequently to scrape targets by default. (default = 1m)
+  scrape_interval: 15s
+
+  # How long until a scrape request times out. (default = 10s)
+  scrape_timeout: 10s
+
+  # How frequently to evaluate rules. (default = 1m)
+  evaluation_interval: 1m
+
+
+#  Specifies Alertmanager instances the Prometheus server sends alerts to.
+alerting:
+  alertmanagers:
+  - scheme: http
+    static_configs:
+    - targets:
+      {% for host in groups.prometheus %}{#--#}
+      - {{ host }}:9093
+      {% endfor %}{#--#}
+
+# Rule files containing rules and alerts are read from all matching files.
+rule_files:
+  - {{ prometheus_rule_path }}/*.rules
+
+# Scrape configs specifiy a set of targets and parameters.
+scrape_configs:
+
+  #--------------------------------------------------------------
+  # Prometheus targets
+  #--------------------------------------------------------------
+  - job_name: prometheus
+    static_configs:
+      - targets:
+        {% for host in groups.prometheus %}{#--#}
+        - {{ host }}:9090
+        {% endfor %}{#--#}
+        labels:
+          platform: prometheus
+          role: prometheus
+          region: {{ group_vars_region }}
+          environment: {{ group_vars_environment }}
+    relabel_configs:
+      - source_labels: [__address__]
+        regex:         (.*):.*
+        target_label:  instance
+        replacement:   ${1}
+
+  - job_name: alertmanager
+    static_configs:
+      - targets:
+        {% for host in groups.alertmanager %}{#--#}
+        - {{ host }}:9093
+        {% endfor %}{#--#}
+        labels:
+          platform: prometheus
+          role: alertmanager
+          region: {{ group_vars_region }}
+          environment: {{ group_vars_environment }}
+    relabel_configs:
+      - source_labels: [__address__]
+        regex:         (.*):.*
+        target_label:  instance
+        replacement:   ${1}
+
+  - job_name: pushgateway
+    honor_labels: true
+    static_configs:
+      - targets:
+        {% for host in groups.pushgateway %}{#--#}
+        - {{ host }}:9091
+        {% endfor %}{#--#}
+        labels:
+          platform: prometheus
+          role: pushgateway
+          region: {{ group_vars_region }}
+          environment: {{ group_vars_environment }}
+    relabel_configs:
+      - source_labels: [__address__]
+        regex:         (.*):.*
+        target_label:  instance
+        replacement:   ${1}
+
+  - job_name: cloudwatch
+    scrape_interval: "5m"
+    scrape_timeout: "1m"
+    static_configs:
+      - targets:
+        {% for host in groups.cloudwatchexporter %}{#--#}
+        - {{ host }}:9106
+        {% endfor %}{#--#}
+        labels:
+          platform: prometheus
+          role: cloudwatch
+          region: {{ group_vars_region }}
+          environment: {{ group_vars_environment }}
+    relabel_configs:
+      - source_labels: [__address__]
+        regex:         (.*):.*
+        target_label:  instance
+        replacement:   ${1}
+
+  #--------------------------------------------------------------
+  # Prometheus Node Exporter targets
+  #--------------------------------------------------------------
+  - job_name: node
+    static_configs:
+      - targets:
+        {% for host in groups.prometheus %}{#--#}
+        - {{ host }}:9100
+        {% endfor %}{#--#}
+        labels:
+          platform: prometheus
+          role: prometheus
+          region: {{ group_vars_region }}
+          environment: {{ group_vars_environment }}
+
+      - targets:
+        {% for host in groups.pushgateway %}{#--#}
+        - {{ host }}:9100
+        {% endfor %}{#--#}
+        labels:
+          platform: prometheus
+          role: pushgateway
+          region: {{ group_vars_region }}
+          environment: {{ group_vars_environment }}
+
+      - targets:
+        {% for host in groups.cloudwatchexporter %}{#--#}
+        - {{ host }}:9100
+        {% endfor %}{#--#}
+        labels:
+          platform: prometheus
+          role: cloudwatch
+          region: {{ group_vars_region }}
+          environment: {{ group_vars_environment }}
+
+      - targets:
+        {% for host in groups.grafana %}{#--#}
+        - {{ host }}:9100
+        {% endfor %}{#--#}
+        labels:
+          platform: prometheus
+          role: grafana
+          region: {{ group_vars_region }}
+          environment: {{ group_vars_environment }}
+    relabel_configs:
+      - source_labels: [__address__]
+        regex:         (.*):.*
+        target_label:  instance
+        replacement:   ${1}
+
+
+  #--------------------------------------------------------------
+  # Headwaters targets (uses ec2 service discovery)
+  #--------------------------------------------------------------
+  - job_name: headwaters-node
+    scrape_interval: 1m
+    ec2_sd_configs:
+      - refresh_interval: 1m
+        port: 9100
+        region: {{ group_vars_region }}
+    relabel_configs:
+      - source_labels: [__meta_ec2_tag_Platform, __meta_ec2_tag_cluster_name]
+        regex: '({{ group_vars_headwaters_platform }});({{ group_vars_headwaters_cluster_name }})'
+        action: keep
+      - target_label: region
+        replacement: '{{ group_vars_region }}'
+      - target_label: environment
+        replacement: '{{ group_vars_environment }}'
+      - source_labels: [__meta_ec2_tag_cluster_prefix]
+        target_label: cluster
+      - source_labels: [__meta_ec2_tag_Name]
+        regex: .*-(mm|mm.{3})[0-9]+-.*-.*
+        replacement: ${1}
+        target_label: cluster_type
+      - source_labels: [__meta_ec2_tag_role]
+        target_label: role
+      - source_labels: [role]
+        regex: kafka.*
+        replacement: kafka
+        target_label: role
+      - source_labels: [__meta_ec2_tag_Platform]
+        target_label: platform
+      - source_labels: [__meta_ec2_tag_Name, __meta_ec2_tag_cluster_domain]
+        regex: (.*);(.*)
+        replacement: ${1}.${2}
+        target_label: instance
+
+  - job_name: headwaters-jmx
+    scrape_interval: 1m
+    scrape_timeout: 45s
+    ec2_sd_configs:
+      - refresh_interval: 1m
+        port: 9242
+        region: {{ group_vars_region }}
+    relabel_configs:
+      - source_labels: [__meta_ec2_tag_Platform, __meta_ec2_tag_cluster_name,__meta_ec2_tag_role]
+        regex: '({{ group_vars_headwaters_platform }});({{ group_vars_headwaters_cluster_name }});(kafka.*|mirrormaker)'
+        action: keep
+      - target_label: region
+        replacement: '{{ group_vars_region }}'
+      - target_label: environment
+        replacement: '{{ group_vars_environment }}'
+      - source_labels: [__meta_ec2_tag_cluster_prefix]
+        target_label: cluster
+      - source_labels: [__meta_ec2_tag_role]
+        target_label: role
+      - source_labels: [role]
+        regex: kafka.*
+        replacement: kafka
+        target_label: role
+      - source_labels: [__meta_ec2_tag_Name]
+        regex: .*-(mm|mm.{3})[0-9]+-.*-.*
+        replacement: ${1}
+        target_label: cluster_type
+      - source_labels: [__meta_ec2_tag_Platform]
+        target_label: platform
+      - source_labels: [__meta_ec2_tag_Name, __meta_ec2_tag_cluster_domain]
+        regex: (.*);(.*)
+        replacement: ${1}.${2}
+        target_label: instance
+
+  #--------------------------------------------------------------
+  # Atlantic targets (uses ec2 service discovery)
+  #--------------------------------------------------------------
+  {# - job_name: atlantic-node
+    scrape_interval: 1m
+    ec2_sd_configs:
+      - refresh_interval: 1m
+        port: 9100
+        region: {{ group_vars_region }}
+    relabel_configs:
+      - source_labels: [__meta_ec2_tag_Platform, __meta_ec2_tag_Name]
+        regex: '({{ group_vars_atlantic_platform }});({{ group_vars_atlantic_cluster_name }})'
+        action: keep
+      - target_label: region
+        replacement: '{{ group_vars_region }}'
+      - target_label: environment
+        replacement: '{{ group_vars_environment }}'
+      - source_labels: [__meta_ec2_tag_Platform]
+        target_label: platform
+      - source_labels: [__meta_ec2_tag_Name]
+        target_label: cluster
+      - source_labels: [__meta_ec2_tag_aws_elasticmapreduce_job_flow_id]
+        target_label: cluster_id
+      - source_labels: [__meta_ec2_tag_ClusterType]
+        target_label: cluster_type
+      - target_label: role
+        replacement: 'emr'
+      - source_labels: [__meta_ec2_tag_aws_elasticmapreduce_instance_group_role]
+        target_label: instance_role
+      - source_labels: [__meta_ec2_private_ip]
+        target_label: instance
+
+  - job_name: atlantic-graphite
+    scrape_interval: 1m
+    ec2_sd_configs:
+      - refresh_interval: 1m
+        port: 9109
+        region: {{ group_vars_region }}
+    relabel_configs:
+      - source_labels: [__meta_ec2_tag_Platform, __meta_ec2_tag_Name,__meta_ec2_tag_aws_elasticmapreduce_instance_group_role]
+        regex: '({{ group_vars_atlantic_platform }});({{ group_vars_atlantic_cluster_name }});(MASTER)'
+        action: keep
+      - target_label: region
+        replacement: '{{ group_vars_region }}'
+      - target_label: environment
+        replacement: '{{ group_vars_environment }}'
+      - source_labels: [__meta_ec2_tag_Platform]
+        target_label: platform
+      - source_labels: [__meta_ec2_tag_Name]
+        target_label: cluster
+      - source_labels: [__meta_ec2_tag_aws_elasticmapreduce_job_flow_id]
+        target_label: cluster_id
+      - source_labels: [__meta_ec2_tag_ClusterType]
+        target_label: cluster_type
+      - target_label: role
+        replacement: 'emr'
+      - source_labels: [__meta_ec2_tag_aws_elasticmapreduce_instance_group_role]
+        target_label: instance_role
+      - source_labels: [__meta_ec2_private_ip]
+        target_label: instance #}

@@ -1,0 +1,18 @@
+---
+# file: common.yml
+
+- hosts: all
+  become: true
+  tasks:
+  - name: upgrade all packages
+    yum: name=* state=latest update_cache=yes
+
+- hosts: all
+  become: true
+  roles:
+    - ansible-prometheus
+  vars_files:
+    - vars.yml
+  vars:
+    prometheus_components: ["node_exporter"]
+    prometheus_node_exporter_version:  0.14.0

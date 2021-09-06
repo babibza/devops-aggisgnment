@@ -1,0 +1,30 @@
+---
+#
+# These are the default vars for configuring all of the Prometheus components
+# (Prometheus, Alertmanager, Pushgateway, Node Exporter)
+#
+
+# user and group
+prometheus_user:   prometheus
+prometheus_group:  prometheus
+
+# directory for executable files
+prometheus_install_path:          /opt/prometheus
+
+# directory for configuration files
+prometheus_config_path:           /etc/prometheus
+
+# directory for logs
+prometheus_log_path:              /var/log/prometheus
+
+# directory for PID files
+prometheus_pid_path:              /var/run/prometheus
+
+# directory for runtime database
+prometheus_db_path:               /var/lib/prometheus
+
+# directory for runtime database
+prometheus_alertmanager_db_path:  /var/lib/alertmanager
+
+# directory for temporary files
+prometheus_download_path:  /tmp

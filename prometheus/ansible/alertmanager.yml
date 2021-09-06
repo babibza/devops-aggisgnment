@@ -1,0 +1,14 @@
+---
+# file: alertmanager.yml
+
+- hosts: alertmanager
+  become: true
+  roles:
+    - ansible-prometheus
+  vars_files:
+    - vars.yml
+  vars:
+    prometheus_components: ["alertmanager"]
+    prometheus_alertmanager_version:  0.8.0
+    prometheus_alertmanager_conf: config/alertmanager.yml.j2
+    prometheus_alertmanager_opts: "{{ lookup('template', 'config/alertmanager-opts.j2') }}"

@@ -1,0 +1,364 @@
+
+terraform {
+  required_version = ">= 0.12"
+}
+
+variable "aws_key_name" {
+  type = "string"
+  description = "AWS EC2 key pair name"
+  default = "my-dev"
+}
+
+variable "cluster_name" {
+  type = "string"
+  description = "Unique cluster name within the DNS domain"
+  default = "dev"
+}
+
+### Optional Variables. Most of these should not have to change.
+
+variable "disable_api_termination" {
+  type = "string"
+  default = "false"
+}
+
+
+variable "aws_region" {
+  type = "string"
+  description = "AWS Region ID"
+  default = "us-east-1"
+}
+
+variable "user_role_variables" {
+  default = ""
+}
+
+variable "cider_ranges_variables" {
+
+  default = {
+    cider_vpc              = "171.2.21.0/24"
+    cider_sub_public_a     = "171.2.21.0/26"
+    cider_sub_public_b     = "171.2.21.64/26"
+    cider_sub_private_a    = "171.2.21.128/26"
+    cider_sub_private_b    = "171.2.21.192/26"
+  }
+}
+
+variable "cluster_domain" {
+  type = "string"
+  description = "Top-level DNS domain for the cluster."
+  default = "mydev.aws.com"
+}
+
+variable "security_groups" {
+  type = "list"
+  description = "list of aws security groups"
+  default = ["sg-5623576"]
+}
+
+variable "vpc_name" {
+  type = "string"
+  default = "use-dev"
+}
+
+variable "environment" {
+  default = "dev"
+}
+
+variable "datanodes_ebs_volume_size" {
+  type = "string"
+  default = "20"
+}
+
+variable "datanodes_count" {
+  type = "string"
+  default = "1"
+}
+
+variable "datanodes_flavor" {
+  type = "string"
+  default = "m5.4xlarge"
+}
+
+
+#### internet Gateway for VPC
+## Naming Standard: igw-<VPC CIDR/Mask>
+resource "aws_internet_gateway" "igw" {
+  vpc_id = aws_vpc.main.id
+
+
+ tags = merge({
+    Name               = "igw-${var.cider_ranges_variables.cider_vpc}"
+    Application          = var.tagging_variables.Application
+    Sub_Systems          = var.tagging_variables.Sub_Systems
+    Owner                = var.tagging_variables.Owner
+    Cost_Center          = var.tagging_variables.Cost_Center
+    Environment          = var.tagging_variables.Environment
+    Data_Classification  = var.tagging_variables.Data_Classification
+    }, var.additional_tags)
+}
+
+# Create EIPs for the NAT Gateways
+## Naming Standard: <device>-<Subnet CIDR>-<AZ>
+resource "aws_eip" "nat1" {
+  vpc = true
+
+ tags = merge({
+    Name               = "ngw-${var.cider_ranges_variables.cider_sub_public_a}-${var.region}a"
+    Application          = var.tagging_variables.Application
+    Sub_Systems          = var.tagging_variables.Sub_Systems
+    Owner                = var.tagging_variables.Owner
+    Cost_Center          = var.tagging_variables.Cost_Center
+    Environment          = var.tagging_variables.Environment
+    Data_Classification  = var.tagging_variables.Data_Classification
+    }, var.additional_tags)
+}
+
+resource "aws_eip" "nat2" {
+  vpc = true
+
+ tags = merge({
+    Name               = "ngw-${var.cider_ranges_variables.cider_sub_public_b}-${var.region}b"
+    Application          = var.tagging_variables.Application
+    Sub_Systems          = var.tagging_variables.Sub_Systems
+    Owner                = var.tagging_variables.Owner
+    Cost_Center          = var.tagging_variables.Cost_Center
+    Environment          = var.tagging_variables.Environment
+    Data_Classification  = var.tagging_variables.Data_Classification
+    }, var.additional_tags)
+}
+
+# Create the NAT Gateways
+## Naming Standard: ngw-<Subnet CIDR/Mask>-<AZ>
+resource "aws_nat_gateway" "nat_2a" {
+  depends_on    = [aws_internet_gateway.igw]
+  allocation_id = aws_eip.nat1.id
+  subnet_id     = aws_subnet.sub_pub_a.id
+
+ tags = merge({
+    Name               = "ngw-${var.cider_ranges_variables.cider_sub_public_a}-${var.region}a"
+    Application          = var.tagging_variables.Application
+    Sub_Systems          = var.tagging_variables.Sub_Systems
+    Owner                = var.tagging_variables.Owner
+    Cost_Center          = var.tagging_variables.Cost_Center
+    Environment          = var.tagging_variables.Environment
+    Data_Classification  = var.tagging_variables.Data_Classification
+    }, var.additional_tags)
+}
+
+resource "aws_nat_gateway" "nat_2b" {
+  depends_on    = [aws_internet_gateway.igw]
+  allocation_id = aws_eip.nat2.id
+  subnet_id     = aws_subnet.sub_pub_b.id
+
+ tags = merge({
+    Name               = "ngw-${var.cider_ranges_variables.cider_sub_public_b}-${var.region}b"
+    Application          = var.tagging_variables.Application
+    Sub_Systems          = var.tagging_variables.Sub_Systems
+    Owner                = var.tagging_variables.Owner
+    Cost_Center          = var.tagging_variables.Cost_Center
+    Environment          = var.tagging_variables.Environment
+    Data_Classification  = var.tagging_variables.Data_Classification
+    }, var.additional_tags)
+}
+
+
+### Default security group for VPC
+resource "aws_default_security_group" "vpc_default" {
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    self        = true
+    cidr_blocks = [aws_vpc.main.cidr_block, var.shared_services_account_variables.ss_vpc_cidr_block]
+  }
+
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+ tags = merge({
+    Name                 = "sg-default-${var.cider_ranges_variables.cider_vpc}"
+    Application          = var.tagging_variables.Application
+    Sub_Systems          = var.tagging_variables.Sub_Systems
+    Owner                = var.tagging_variables.Owner
+    Cost_Center          = var.tagging_variables.Cost_Center
+    Environment          = var.tagging_variables.Environment
+    Data_Classification  = var.tagging_variables.Data_Classification
+    }, var.additional_tags)
+}
+
+# Create the public subnets
+## Naming standerd: <subnet/mask> (<Usage> <AZ>)
+resource "aws_subnet" "sub_pub_a" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.cider_ranges_variables.cider_sub_public_a
+  availability_zone       = "${var.region}a"
+  map_public_ip_on_launch = false
+
+ tags = merge({
+    Name                 = "${var.cider_ranges_variables.cider_sub_public_a} (Public ${var.region}a)"
+    Application          = var.tagging_variables.Application
+    Sub_Systems          = var.tagging_variables.Sub_Systems
+    Owner                = var.tagging_variables.Owner
+    Cost_Center          = var.tagging_variables.Cost_Center
+    Environment          = var.tagging_variables.Environment
+    Data_Classification  = var.tagging_variables.Data_Classification
+    Network              = "Public"
+    }, var.additional_tags)
+}
+
+resource "aws_subnet" "sub_pub_b" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.cider_ranges_variables.cider_sub_public_b
+  availability_zone       = "${var.region}b"
+  map_public_ip_on_launch = false
+
+ tags = merge({
+    Name                 = "${var.cider_ranges_variables.cider_sub_public_b} (Public ${var.region}b)"
+    Application          = var.tagging_variables.Application
+    Sub_Systems          = var.tagging_variables.Sub_Systems
+    Owner                = var.tagging_variables.Owner
+    Cost_Center          = var.tagging_variables.Cost_Center
+    Environment          = var.tagging_variables.Environment
+    Data_Classification  = var.tagging_variables.Data_Classification
+    Network              = "Public"
+    }, var.additional_tags)
+}
+
+# Create the private subnets
+resource "aws_subnet" "sub_private_a" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.cider_ranges_variables.cider_sub_private_a
+  availability_zone       = "${var.region}a"
+  map_public_ip_on_launch = false
+
+ tags = merge({
+    Name                 = "${var.cider_ranges_variables.cider_sub_private_a} (Private ${var.region}a)"
+    Application          = var.tagging_variables.Application
+    Sub_Systems          = var.tagging_variables.Sub_Systems
+    Owner                = var.tagging_variables.Owner
+    Cost_Center          = var.tagging_variables.Cost_Center
+    Environment          = var.tagging_variables.Environment
+    Data_Classification  = var.tagging_variables.Data_Classification
+    Network              = "Private"
+    }, var.additional_tags)
+}
+
+resource "aws_subnet" "sub_private_b" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.cider_ranges_variables.cider_sub_private_b
+  availability_zone       = "${var.region}b"
+  map_public_ip_on_launch = false
+
+ tags = merge({
+    Name                 = "${var.cider_ranges_variables.cider_sub_private_b} (Private ${var.region}b)"
+    Application          = var.tagging_variables.Application
+    Sub_Systems          = var.tagging_variables.Sub_Systems
+    Owner                = var.tagging_variables.Owner
+    Cost_Center          = var.tagging_variables.Cost_Center
+    Environment          = var.tagging_variables.Environment
+    Data_Classification  = var.tagging_variables.Data_Classification
+    Network              = "Private"
+    }, var.additional_tags)
+}
+
+resource "aws_vpc" "main" {
+  cidr_block           = var.cider_ranges_variables.cider_vpc
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+
+ tags = merge({
+    Name                 = "${var.tagging_variables.vpc_name}_${var.region} (${var.cider_ranges_variables.cider_vpc})"
+    Application          = var.tagging_variables.Application
+    Sub_Systems          = var.tagging_variables.Sub_Systems
+    Owner                = var.tagging_variables.Owner
+    Cost_Center          = var.tagging_variables.Cost_Center
+    Environment          = var.tagging_variables.Environment
+    Data_Classification  = var.tagging_variables.Data_Classification
+    }, var.additional_tags)
+}
+
+module "cloud_init" {
+  source = "../common_cloud_init"
+  vpc_name = "${var.vpc_name}"
+  environment = "${var.environment}"
+  mount_path = ""
+  volume_type = "ephemeral"
+}
+
+
+resource "aws_instance" "datanodes" {
+  ami = "ami-0080e4c5bc078760e"
+  count = "${var.instance_count}"
+  instance_type = "${var.instance_type}"
+  key_name = "${var.aws_key_name}"
+  subnet_id = "${element(module.config.vpc_subnets, count.index % length(module.config.vpc_subnets))}"
+  iam_instance_profile = "${module.config.vpc_iam_profile}"
+  user_data = "${module.cloud_init.cloud_init}"
+  disable_api_termination = "${var.disable_api_termination}"
+  vpc_security_group_ids = ["${distinct(var.security_groups)}"]
+
+
+  tags {
+    Name = "${format("%s01-apigateway${format("%02d", count.index + 1+7)}", var.cluster_name)}"
+    cluster_name = "${var.cluster_name}"
+    cluster_domain = "${var.cluster_domain}"
+    vpc = "${module.config.vpc_id}"
+    vpc_name = "${var.vpc_name}"
+  }
+
+  ebs_block_device {
+    device_name = "/dev/xvde"
+    volume_type = "st1"
+    volume_size = "500"
+    delete_on_termination = "false"
+  }
+
+  ebs_block_device {
+    device_name = "/dev/xvdf"
+    volume_type = "gp2"
+    volume_size = "25"
+    delete_on_termination = "false"
+  }
+
+  ebs_block_device {
+    device_name = "/dev/xvdg"
+    volume_type = "gp2"
+    volume_size = "25"
+    delete_on_termination = "false"
+  }
+
+  lifecycle {
+    ignore_changes = ["user_data"]
+  }
+}
+
+resource "aws_route53_record" "datanodes_a_records" {
+  count = "${var.instance_count}"
+  zone_id = "${module.config.dns_zone_id}"
+  name = "${format("%s01-apigateway${format("%02d", count.index)}", var.cluster_name)}"
+  type = "A"
+  ttl = "900"
+  records = ["${element(aws_instance.datanodes.*.private_ip, count.index)}"]
+}
+
+
+
+output "private_ips" {
+  value = ["${aws_instance.datanodes.*.private_ip}"]
+}
+
+output "instances" {
+  value = ["${aws_instance.datanodes.*.id}"]
+}
+
+output "names" {
+  value = ["${aws_instance.datanodes.*.tags.Name}"]
+}

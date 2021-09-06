@@ -1,0 +1,12 @@
+---
+# file: cloudwatch.yml
+
+- hosts: cloudwatchexporter
+  become: true
+  roles:
+    - ansible-cw-exporter
+  vars_files:
+    - vars.yml
+  vars:
+    prometheus_cloudwatch_exporter_version:  0.4
+    prometheus_cloudwatch_exporter_config: config/cloudwatch-exporter.yml.j2

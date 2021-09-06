@@ -1,0 +1,1 @@
+-storage.local.retention={{ group_vars_prometheus_retention }} -storage.local.target-heap-size={{ (hostvars[inventory_hostname]['ansible_memtotal_mb'] * 1024 * 1024 * 0.60) | int }}

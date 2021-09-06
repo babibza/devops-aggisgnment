@@ -1,0 +1,73 @@
+#--------------------------------------------------------------
+# Headwaters Recording Rules
+#--------------------------------------------------------------
+# Kafka Broker Metrics - by CLUSTER
+cluster:kafka_server_brokertopicmetrics_messagesin:rate5m = sum without(instance,topic) (rate(kafka_server_brokertopicmetrics_messagesin_total{role="kafka",topic!=""}[5m]))
+cluster:kafka_server_brokertopicmetrics_bytesin:rate5m = sum without(instance,topic) (rate(kafka_server_brokertopicmetrics_bytesin_total{role="kafka",topic!=""}[5m]))
+cluster:kafka_server_brokertopicmetrics_bytesout:rate5m = sum without(instance,topic) (rate(kafka_server_brokertopicmetrics_bytesout_total{role="kafka",topic!=""}[5m]))
+
+# Kafka Broker Metrics - by TOPIC
+cluster_topic:kafka_server_brokertopicmetrics_messagesin:rate5m = sum without(instance) (rate(kafka_server_brokertopicmetrics_messagesin_total{role="kafka",topic!=""}[5m]))
+cluster_topic:kafka_server_brokertopicmetrics_bytesin:rate5m = sum without(instance) (rate(kafka_server_brokertopicmetrics_bytesin_total{role="kafka",topic!=""}[5m]))
+cluster_topic:kafka_server_brokertopicmetrics_bytesout:rate5m = sum without(instance) (rate(kafka_server_brokertopicmetrics_bytesout_total{role="kafka",topic!=""}[5m]))
+
+cluster_topic:kafka_log_size:sum = sum without (partition,instance) (kafka_log_size{role="kafka",topic!=""})
+cluster_topic:kafka_server_fetcherlagmetrics_consumerlag:sum = sum without (instance, clientId, partition) (kafka_server_fetcherlagmetrics_consumerlag{role="kafka",topic!=""})
+
+# Kafka Broker Metrics - by INSTANCE
+cluster_instance:kafka_server_brokertopicmetrics_messagesin:rate5m = sum without(topic) (rate(kafka_server_brokertopicmetrics_messagesin_total{role="kafka",topic!=""}[5m]))
+cluster_instance:kafka_server_brokertopicmetrics_bytesin:rate5m = sum without(topic) (rate(kafka_server_brokertopicmetrics_bytesin_total{role="kafka",topic!=""}[5m]))
+cluster_instance:kafka_server_brokertopicmetrics_bytesout:rate5m = sum without(topic) (rate(kafka_server_brokertopicmetrics_bytesout_total{role="kafka",topic!=""}[5m]))
+
+#--------------------------------------------------------------
+# Headwaters Alerts
+#--------------------------------------------------------------
+# Alert on InstanceDown down for > 1m
+ALERT HeadwatersInstanceDown
+  IF up{platform="Headwaters"} == 0
+  FOR 1m
+  LABELS { severity = "warning" }
+  ANNOTATIONS {
+    summary = "Headwaters Instance Down Alert",
+    description = "Instance *{{ $labels.instance }}* in region: *{{ $labels.region }}*, job *{{ $labels.job }}*, has been down for more than 1 minute."
+  }
+
+# Alert on ActiveControllerCount
+ALERT HeadwatersActiveControllerCount
+  IF sum by (cluster) (kafka_controller_kafkacontroller_activecontrollercount{role="kafka"}) != 1
+  FOR 1m
+  LABELS { severity = "critical" }
+  ANNOTATIONS {
+    summary = "Headwaters Kafka cluster ActiveControllerCount != 1",
+    description = "Cluster: *{{ $labels.cluster }}-kafka*, region: *{{ $labels.region }}*, env: *{{ $labels.environment }}*, ActiveControllerCount != 1 for more than 1 minute, current value: {{ $value }}, this is a critical error and should be investigated immediately."
+  }
+
+# Alert on UnderReplicatedPartitions
+ALERT HeadwatersUnderReplicatedPartitions
+  IF sum by (cluster) (kafka_server_replicamanager_underreplicatedpartitions{role="kafka"}) > 0
+  FOR 10m
+  LABELS { severity = "critical" }
+  ANNOTATIONS {
+    summary = "Headwaters Kafka cluster UnderReplicatedPartitions > 0",
+    description = "Cluster: *{{ $labels.cluster }}-kafka*, region: *{{ $labels.region }}*, env: *{{ $labels.environment }}*, UnderReplicatedPartitions > 0 for more than 10 minutes, current value: {{ $value }}, this indicates a possible performance issue with the cluster."
+  }
+
+# Alert on OfflinePartitionsCount
+ALERT HeadwatersOfflinePartitions
+  IF sum by (cluster) (kafka_controller_kafkacontroller_offlinepartitionscount{role="kafka"}) > 0
+  FOR 10m
+  LABELS { severity = "critical" }
+  ANNOTATIONS {
+    summary = "Headwaters Kafka cluster OfflinePartitionsCount > 0",
+    description = "Cluster: *{{ $labels.cluster }}-kafka*, region: *{{ $labels.region }}*, env: *{{ $labels.environment }}*, OfflinePartitionsCount > 0 for more than 10 minutes, current value: {{ $value }}, this indicates at least one partition has gone offline in the cluster."
+  }
+
+# Alert on MirrormakerNumDroppedMessages
+ALERT HeadwatersMirrormakerNumDroppedMessages
+  IF sum by (cluster) (kafka_tools_mirrormaker_numdroppedmessages{role="mirrormaker"}) > 100
+  FOR 15m
+  LABELS { severity = "critical" }
+  ANNOTATIONS {
+    summary = "Headwaters MirrorMaker cluster NumDroppedMessages > 100 for more than 15 minutes",
+    description = "Cluster: *{{ $labels.cluster }}-${{ labels.cluster_type }}*, region: *{{ $labels.region }}*, env: *{{ $labels.environment }}*, NumDroppedMessages > 100 for more than 15 minutes, current value: {{ $value }}, this indicates an issue with the cluster."
+  }

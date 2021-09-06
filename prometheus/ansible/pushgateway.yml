@@ -1,0 +1,12 @@
+---
+# file: pushgateway.yml
+
+- hosts: pushgateway
+  become: true
+  roles:
+    - ansible-prometheus
+  vars_files:
+    - vars.yml
+  vars:
+    prometheus_components: ["pushgateway"]
+    prometheus_pushgateway_version:  0.4.0

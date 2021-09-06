@@ -1,0 +1,19 @@
+# Alert on instance down for > 1m
+ALERT AtlanticInstanceDown
+  IF up{platform="Atlantic"} == 0
+  FOR 1m
+  LABELS { severity = "warning" }
+  ANNOTATIONS {
+    summary = "Atlantic Instance Down Alert",
+    description = "Instance: *{{ $labels.instance }}* in cluster: *{{ $labels.cluster }}*, region: *{{ $labels.region }}*, job: {{ $labels.job }}, has been down for more than 1 minute."
+  }
+
+# Alert on HDFS Utilization > 80%
+ALERT AtlanticHDFSUtilization
+  IF aws_elasticmapreduce_hdfsutilization_average > 80
+  FOR 5m
+  LABELS { severity = "warning" }
+  ANNOTATIONS {
+    summary = "Atlantic cluster HDFS utilization exceeds 80% threshold",
+    description = "HDFS utilization now *{{ $value }}%* for cluster *{{ $labels.job_flow_id }}* in region: *{{ $labels.region }}*."
+  }

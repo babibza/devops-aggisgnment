@@ -1,0 +1,96 @@
+region: {{ group_vars_region }}
+
+metrics:
+
+#--------------------------------------------------------------
+# S3 Metrics
+#--------------------------------------------------------------
+- aws_namespace: AWS/S3
+  aws_metric_name: BucketSizeBytes
+  aws_dimensions: [BucketName, StorageType]
+  aws_statistics: [Maximum]
+  range_seconds: 86400
+  period_seconds: 300
+
+- aws_namespace: AWS/S3
+  aws_metric_name: NumberOfObjects
+  aws_dimensions: [BucketName, StorageType]
+  aws_statistics: [Maximum]
+  range_seconds: 86400
+  period_seconds: 300
+
+- aws_namespace: AWS/S3
+  aws_metric_name: AllRequests
+  aws_dimensions: [BucketName, FilterId]
+  aws_statistics: [Maximum]
+  range_seconds: 86400
+  period_seconds: 300
+
+#--------------------------------------------------------------
+# EMR Metrics
+#--------------------------------------------------------------
+- aws_namespace: AWS/ElasticMapReduce
+  aws_metric_name: IsIdle
+  aws_dimensions: [JobFlowId]
+  aws_statistics: [Average]
+  range_seconds: 600
+  period_seconds: 300
+
+- aws_namespace: AWS/ElasticMapReduce
+  aws_metric_name: HDFSUtilization
+  aws_dimensions: [JobFlowId]
+  aws_statistics: [Average]
+  range_seconds: 600
+  period_seconds: 300
+
+#--------------------------------------------------------------
+# ElastiCache Metrics
+#--------------------------------------------------------------
+- aws_namespace: AWS/ElastiCache
+  aws_metric_name: CPUUtilization
+  aws_dimensions: [CacheClusterId]
+  aws_statistics: [Average]
+  range_seconds: 300
+  period_seconds: 300
+
+- aws_namespace: AWS/ElastiCache
+  aws_metric_name: FreeableMemory
+  aws_dimensions: [CacheClusterId]
+  aws_statistics: [Average]
+  range_seconds: 300
+  period_seconds: 300
+
+- aws_namespace: AWS/ElastiCache
+  aws_metric_name: CurrConnections
+  aws_dimensions: [CacheClusterId]
+  aws_statistics: [Average]
+  range_seconds: 300
+  period_seconds: 300
+
+- aws_namespace: AWS/ElastiCache
+  aws_metric_name: NewConnections
+  aws_dimensions: [CacheClusterId]
+  aws_statistics: [Average]
+  range_seconds: 300
+  period_seconds: 300
+
+- aws_namespace: AWS/ElastiCache
+  aws_metric_name: CacheHits
+  aws_dimensions: [CacheClusterId]
+  aws_statistics: [Average]
+  range_seconds: 300
+  period_seconds: 300
+
+- aws_namespace: AWS/ElastiCache
+  aws_metric_name: CacheMisses
+  aws_dimensions: [CacheClusterId]
+  aws_statistics: [Average]
+  range_seconds: 300
+  period_seconds: 300
+
+- aws_namespace: AWS/ElastiCache
+  aws_metric_name: ReplicationLag
+  aws_dimensions: [CacheClusterId]
+  aws_statistics: [Average]
+  range_seconds: 300
+  period_seconds: 300

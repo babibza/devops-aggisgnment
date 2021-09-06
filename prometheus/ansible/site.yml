@@ -1,0 +1,11 @@
+---
+#
+# This playbook deploys Node Exporter to all servers
+# and then deploys Prometheus, Alertmanager, PushGateway, and Grafana
+#
+- include: common.yml
+- include: prometheus.yml
+- include: alertmanager.yml
+- include: pushgateway.yml
+- include: cloudwatch.yml
+- include: grafana.yml

@@ -1,0 +1,1 @@
+-mesh.listen-address=:8001 {% for host in groups.alertmanager -%}-mesh.peer={{ host }}:8001 {% endfor -%} -web.external-url=http://{{ inventory_hostname }}:9093

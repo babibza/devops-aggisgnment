@@ -1,0 +1,34 @@
+---
+# grafana.yml - install and configure grafana
+
+# - Installs binary to /usr/sbin/grafana-server
+# - Copies init.d script to /etc/init.d/grafana-server
+# - Installs default file (environment vars) to /etc/sysconfig/grafana-server
+# - Copies configuration file to /etc/grafana/grafana.ini
+# - Installs systemd service (if systemd is available) name grafana-server.service
+# - The default configuration uses a log file at /var/log/grafana/grafana.log
+# - The default configuration specifies an sqlite3 database at /var/lib/grafana/grafana.db
+
+- hosts: grafana
+  become: true
+  tasks:
+    - name: install grafana
+      yum:
+        name: https://s3-us-west-2.amazonaws.com/grafana-releases/release/grafana-4.3.1-1.x86_64.rpm
+        state: present
+
+    - name: set service status and start
+      service: name=grafana-server enabled=yes state=started
+
+    - name: setup iptables port 80 redirect to grafana port 3000
+      iptables:
+        table: nat
+        chain: PREROUTING
+        in_interface: eth0
+        protocol: tcp
+        match: tcp
+        destination_port: 80
+        jump: REDIRECT
+        to_ports: 3000
+        comment: Redirect web traffic to Grafana port 3000
+        state: present

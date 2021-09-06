@@ -1,0 +1,26 @@
+---
+# file: prometheus.yml
+
+- hosts: prometheus
+  become: true
+  roles:
+    - ansible-prometheus
+  vars_files:
+    - vars.yml
+  vars:
+    prometheus_components: ["prometheus"]
+    prometheus_version:  1.7.1
+    prometheus_conf_main: config/prometheus.yml.j2
+    prometheus_opts: "{{ lookup('template', 'config/prometheus-opts.j2') }}"
+    prometheus_file_sd_config_path:  "{{ prometheus_config_path }}/targets"
+    prometheus_rule_path:  "{{ prometheus_config_path }}/rules"
+    prometheus_rule_files:
+          prometheus_rules:
+            src:  rules/prometheus.rules
+            dest: prometheus.rules
+          headwaters_rules:
+            src:  rules/headwaters.rules
+            dest: headwaters.rules
+          atlantic_rules:
+            src:  rules/atlantic.rules
+            dest: atlantic.rules
